@@ -239,6 +239,18 @@ const encrypt = async (
 ): Promise<Ciphertext> => {
   const mimc7 = await buildMimc7();
   // [assignment] generate the IV, use Mimc7 to hash the shared key with the IV, then encrypt the plain text
+
+  // reference: https://github.com/privacy-scaling-explorations/maci/blob/master/crypto/ts/index.ts#L245
+  const iv = mimc7.multiHash(plaintext, BigInt(0));
+  const ivBigInt = buf2Bigint(iv);
+  const ciphertext: Ciphertext = {
+    iv: ivBigInt,
+    data: plaintext.map((e: BigInt, i: number): bigint => {
+      const hashVal = mimc7.hash(sharedKey, ivBigInt + BigInt(i));
+      return e.valueOf() + buf2Bigint(hashVal);
+    }),
+  };
+  return ciphertext;
 };
 
 /*
@@ -250,6 +262,14 @@ const decrypt = async (
   sharedKey: EcdhSharedKey,
 ): Promise<Plaintext> => {
   // [assignment] use Mimc7 to hash the shared key with the IV, then descrypt the ciphertext
+  const mimc7 = await buildMimc7();
+  const plaintext: Plaintext = ciphertext.data.map(
+    (e: BigInt, i: number): bigint => {
+      const hashVal = mimc7.hash(sharedKey, ciphertext.iv + BigInt(i));
+      return (e.valueOf() - buf2Bigint(hashVal)).valueOf();
+    },
+  );
+  return plaintext;
 };
 
 export {
